@@ -5,6 +5,8 @@ This demo is based on Burr Sutter's presentation From Devoxx Ukraine: https://ww
 
 This repository includes the HTML for the application and a completed app
 
+## Step 1 : Generate a basic app
+
 ```shell
 mvn io.quarkus:quarkus-maven-plugin:1.0.0.CR2:create
 
@@ -14,8 +16,13 @@ Set the project version [1.0-SNAPSHOT]:
 Do you want to create a REST resource? (y/n) [no]: y
 Set the resource classname [com.redhat.demos.quarkus.todo.HelloResource]: com.redhat.demos.quarkus.todo.ApiResource
 Set the resource path  [/api]:
-...
+```
 
+Show application strucuture
+
+## Step 2 : Dev mode
+
+```shell
 cd todoapp
 code .
 
@@ -71,7 +78,8 @@ public class ApiResource {
 }
 ```
 
-## Hibernate Panache
+## Step 3: Hibernate Panache
+
 ctl-c to stop Quarkus
 
 ```shell
@@ -99,7 +107,9 @@ Show pom.xml
 
 ```
 
-Fire up dev mode again
+```properties
+
+```
 
 ```shell
 
