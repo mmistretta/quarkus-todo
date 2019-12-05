@@ -210,9 +210,9 @@ Fire up Quarkus in dev mode and show the create-drop functionality.
 
 Show the table in pgAdmin.
 
-### Create some REST endpoints
+## Step 4: Create REST endpoints
 
-#### Get all Todo entities
+### Get all Todo entities
 
 Open src/main/java/com/redhat/demos/quarkus/todo/ApiResource.java
 
@@ -244,7 +244,7 @@ public class ApiResource {
 
 Refresh the browser at http://localhost:8080/api
 
-#### Create a Todo entity
+### Create a Todo entity
 
 Add a method to create Todo entities from a POST:
 
@@ -297,3 +297,280 @@ Open Postman (or other REST tool) and send a post with the following JSON:
 
 ```
 _NOTE_: Be sure to set the "Accept" and "Content-Type" headers
+
+## Step 5: Add the HTML
+
+Copy over the html files from the "html-stuff" folder: 
+* src/main/resources/META-INF/resources/js
+* src/main/resources/META-INF/resources/node_modules
+* src/main/resources/META-INF/resources/package-lock.json
+* src/main/resources/META-INF/resources/package.json
+* src/main/resources/META-INF/resources/todo.html
+
+_NOTE_: I think it is best to do this using the Mac Finder instead of the terminal so that all attendees know what I am copying
+
+Open http://localhost:8080/todo.html
+
+Add a todo, "another thing," and show the rows in the table with pgAdmin
+
+## Step 6: Build out the API
+
+Open src/main/java/com/redhat/demos/quarkus/todo/ApiResource.java
+
+### Add a method to delete individual Todo entities
+
+Add a DELETE method to remove entities:
+
+```java
+
+package com.redhat.demos.quarkus.todo;
+
+import javax.transaction.Transactional;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.net.URI;
+import java.util.List;
+
+@Path("/api")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class ApiResource {
+
+    @GET
+    public List<Todo> getAllTodos() {
+        return Todo.listAll();
+    }
+
+    @POST
+    @Transactional
+    public Response addTodo(Todo todo) {
+
+        todo.persist();
+        return Response.created(URI.create("/" + todo.id)).entity(todo).build();
+    }
+
+    @DELETE
+    @Path("/{id}")
+    @Transactional
+    public Response deleteTodo(@PathParam("id") Long id) {
+
+        Todo todo = Todo.findById(id);
+        todo.delete();
+        return Response.ok().build();
+    }
+
+}
+
+```
+
+Add and delete Todo items in the UI.  Open pgAdmin after creating and deleting entities.
+
+### Add a method to update individual Todo entities
+
+```java
+
+package com.redhat.demos.quarkus.todo;
+
+import javax.transaction.Transactional;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.PATCH;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.net.URI;
+import java.util.List;
+
+@Path("/api")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class ApiResource {
+
+    @GET
+    public List<Todo> getAllTodos() {
+        return Todo.listAll();
+    }
+
+    @POST
+    @Transactional
+    public Response addTodo(Todo todo) {
+
+        todo.persist();
+        return Response.created(URI.create("/" + todo.id)).entity(todo).build();
+    }
+
+    @DELETE
+    @Path("/{id}")
+    @Transactional
+    public Response deleteTodo(@PathParam("id") Long id) {
+
+        Todo todo = Todo.findById(id);
+        todo.delete();
+        return Response.ok().build();
+    }
+
+    @PATCH
+    @Path("/{id}")
+    @Transactional
+    public Response updateTodo(@PathParam("id") Long id, Todo updatedTodo) {
+
+        Todo todo = Todo.findById(id);
+        todo.title = updatedTodo.title;
+        todo.persist();
+        return Response.ok(todo).build();
+    }
+}
+
+```
+
+Add some Todo tasks and change the text.  Show the round trip to the database.
+
+### Add fields to the Todo Entity
+
+Open src/main/java/com/redhat/demos/quarkus/todo/Todo.java
+
+```java
+
+package com.redhat.demos.quarkus.todo;
+
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+
+@Entity
+public class Todo extends PanacheEntity {
+
+    public String title;
+
+    @Column(name = "ordering")
+    public int order;
+
+    public boolean completed;
+}
+
+```
+
+Show complete round trips between the UI and the database.
+
+## Step 7: Add OpenAPI/Swagger documentation
+
+Stop Quarkus with ctrl-c.  Add the OpenAPI extension, and start Quarkus:
+
+```shell
+
+./mvnw quarkus:list-extensions
+
+...
+
+./mvnw quarkus:add-extension -Dextension=quarkus-smallrye-openapi
+
+...
+
+./mvnw clean quarkus:dev
+
+```
+
+Open http://localhost:8080/openapi in your browser or curl from the command line.
+
+
+## Step 8: Re-implement the API using Spring annotations
+
+### Add the Spring dependency
+
+```shell
+
+./mvnw quarkus:list-extensions
+
+...
+
+./mvnw quarkus:add-extensions -Dextensions=quarkus-spring-di,quarkus-spring-web
+
+...
+
+./mvnw clean quarkus:dev
+
+```
+
+
+### Create a new endpoint
+
+Create a new class src/main/java/com/redhat/demos/quarkus/todo/SpringApiResource.java
+
+```java
+
+package com.redhat.demos.quarkus.todo;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/springapi")
+public class SpringApiResource {
+
+
+    @GetMapping
+    public List<Todo> getAllTodos() {
+
+        return Todo.listAll();
+    }
+}
+
+```
+
+Demo the new SpringApiResource with Postman.
+
+_NOTE_: To wire the SpringApiResource into the front end open src/main/resources/META-INF/resources/js/store.js and change the url to "springapi"
+
+```javascript
+
+/*jshint unused:false */
+
+(function (exports) {
+
+    'use strict';
+
+    var serverUrl = 'springapi/';
+
+
+    exports.todoStorage = {
+        fetch: async function () {
+            const response = await axios.get(serverUrl);
+            console.log(response.data);
+            return response.data;
+        },
+        add : async function(item) {
+          console.log("Adding todo item " + item.title);
+          return (await axios.post(serverUrl, item)).data;
+        },
+        save: async function (item) {
+            console.log("save called with", item);
+            await axios.patch(serverUrl + item.id, item);
+        },
+        delete: async function(item) {
+            await axios.delete(serverUrl + item.id);
+        },
+        deleteCompleted: async function() {
+          await axios.delete(serverUrl);
+        }
+
+    };
+
+})(window);
+
+```
+
