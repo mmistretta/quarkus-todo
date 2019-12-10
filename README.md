@@ -13,7 +13,6 @@ This repository includes the HTML for the application, in the "html-stuff" folde
 * pgAdmin
 
 You can swap out PostgreSQL for another database. I like PostgreSQL and pgAdmin because PGAdmin's interface makes it is easy to show the changes to the database. Whatever database you choose you have to set up a user account with the appropriate permissions and a schema for the application.
-
 I run both PostgreSQL and PGAdmin via Docker Compose:
 
 ```shell
@@ -21,12 +20,12 @@ cd compose
 docker-compose up
 ```
 
-_NOTE:_ You need to use your laptop's ip when setting up a new Server in pgAdmin. You can get this with
+A database "tododb", a user and schema are all configured automatically, so no further setup is needed.
+If the database doesn't show up in PGAdmin,
+the definition can be imported like this:
 
 ```shell
-
-ifconfig | grep inet
-
+docker exec -it pgadmin_container python setup.py --load-servers /pgadmin4/servers.json --user pgadmin4@pgadmin.org
 ```
 
 ## Step 1 : Generate a basic app
@@ -474,7 +473,6 @@ Show complete round trips between the UI and the database.
 Add the OpenAPI extension:
 
 ```shell
-
 ./mvnw quarkus:list-extensions
 
 ...
@@ -484,6 +482,17 @@ Add the OpenAPI extension:
 ```
 
 Open http://localhost:8080/openapi in your browser or curl/httpie from the command line.
+
+The Swagger UI at http://localhost:8080/swagger-ui can also be used to show off how to test/invoke API methods for which there's no UI yet, e.g. add this to the `ApiResource` for some basic search functionality, also showing a bit more Panache:
+
+
+```java
+@GET
+@Path("/bytitle")
+public List<Todo> getByTitle(@QueryParam("title") String title) {
+    return Todo.find("title LIKE ?1", "%" + title + "%").list();
+}
+```
 
 
 ## Step 8: Re-implement the API using Spring annotations
