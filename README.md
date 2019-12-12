@@ -12,35 +12,31 @@ This repository includes the HTML for the application, in the "html-stuff" folde
 * PostgreSQL
 * pgAdmin
 
-You an swap out PostgreSQL for another database.  I like PostgreSQL and pgAdmin because PGAdmin's interface makes it is easy to show the changes to the database.  Whatever database you choose you have to set up a user account with the appropriate permissions and a schema for the application
-
-I run both PostgreSQL and PGAdmin from Docker:
+You can swap out PostgreSQL for another database. I like PostgreSQL and pgAdmin because PGAdmin's interface makes it is easy to show the changes to the database. Whatever database you choose you have to set up a user account with the appropriate permissions and a schema for the application.
+I run both PostgreSQL and PGAdmin via Docker Compose:
 
 ```shell
-docker run docker run -d -p 5432:5432 --name pgdemodb -e POSTGRES_PASSWORD=redhat-19 postgres
-docker run --name pgadmin -p 80:80 -e 'PGADMIN_DEFAULT_EMAIL=<<YOUR_EMAIL_ADDRESS>>' -e 'PGADMIN_DEFAULT_PASSWORD=redhat-19' -d dpage/pgadmin4
+cd compose
+docker-compose up
 ```
 
-_NOTE:_ You need to use your laptop's ip when setting up a new Server in pgAdmin.  You can get this with
+A database "tododb", a user and schema are all configured automatically, so no further setup is needed.
+If the database doesn't show up in PGAdmin,
+the definition can be imported like this:
 
 ```shell
-
-ifconfig | grep inet
-
+docker exec -it pgadmin_container python setup.py --load-servers /pgadmin4/servers.json --user pgadmin4@pgadmin.org
 ```
 
 ## Step 1 : Generate a basic app
 
-```shell
-mvn io.quarkus:quarkus-maven-plugin:1.0.1.Final:create
+Go to https://code.quarkus.io/.
 
-Set the project groupId [org.acme.quarkus.sample]: com.redhat.demos.quarkus.todo
-Set the project artifactId [my-quarkus-project]: quarkus-todo
-Set the project version [1.0-SNAPSHOT]:
-Do you want to create a REST resource? (y/n) [no]: y
-Set the resource classname [com.redhat.demos.quarkus.todo.HelloResource]: com.redhat.demos.quarkus.todo.ApiResource
-Set the resource path  [/api]:
-```
+Group: com.redhat.demos.quarkus.todo
+Artifact: quarkus-todo
+Package name: com.redhat.demos.quarkus.todo
+
+Click "Generate your application".
 
 Show application strucuture
 
@@ -51,15 +47,21 @@ This next step assumes that you have Visual Studio Code and the VSCode shell com
 ```shell
 cd quarkus-todo
 code .
+```
 
+Open src/main/java/com/redhat/demos/quarkus/todo/ApiResource.
+Change @Path("/hello") -> @Path("/api").
+
+```shell
 ./mvnw clean test
 ./mvnw clean compile quarkus:dev
 
 ```
 
-Open localhost:8080 and show the default page
+Open localhost:8080 and show the default page.
+
 Open localhost:8080/api
-Open src/main/java/com/redhat/demos/quarkus/todo/ApiResource
+
 Change "hello" to "Hello"
 
 ```java
@@ -83,7 +85,7 @@ public class ApiResource {
 ```
 
 Refresh the page
-Add an exclaimation point, "Hello!"
+Add an exclamation point, "Hello!"
 
 ```java
 package com.redhat.demos.quarkus.todo;
@@ -133,8 +135,6 @@ public class ApiResourceTest {
 
 ## Step 3: Hibernate Panache
 
-ctl-c to stop Quarkus
-
 ### Add New Dependencies
 
 ```shell
@@ -169,13 +169,14 @@ Add the database properties to our src/main/resources/application.properties fil
 
 ```properties
 
-quarkus.datasource.url=jdbc:postgresql://localhost:5432/tododb?currentSchema=todo
+quarkus.datasource.url=jdbc:postgresql://localhost:5432/tododb
 quarkus.datasource.driver=org.postgresql.Driver
 quarkus.datasource.username=todouser
-quarkus.datasource.password=redhat-19
+quarkus.datasource.password=todopw
 quarkus.hibernate-orm.log.sql=true
 
 quarkus.hibernate-orm.database.generation=drop-and-create
+quarkus.hibernate-orm.database.default-schema=todo
 
 ```
 
@@ -200,15 +201,14 @@ public class Todo extends PanacheEntity {
 
 ```
 
-Fire up Quarkus in dev mode and show the create-drop functionality.
+Show the table in pgAdmin.
+Go to http://localhost:5050/browser/ (e-mail: pgadmin4@pgadmin.org, password: admin).
+
+Getting shell access to Postgres:
 
 ```shell
-
-./mvnw clean compile quarkus:dev
-
+docker run --tty --rm -i --network todo-network debezium/tooling bash -c 'pgcli postgresql://todouser:todopw@todo-db:5432/tododb'
 ```
-
-Show the table in pgAdmin.
 
 ## Step 4: Create REST endpoints
 
@@ -235,8 +235,8 @@ import java.util.List;
 public class ApiResource {
 
     @GET
+    @Transactional
     public List<Todo> getAllTodos() {
-
         return Todo.listAll();
     }
 
@@ -269,6 +269,7 @@ import java.util.List;
 public class ApiResource {
 
     @GET
+    @Transactional
     public List<Todo> getAllTodos() {
         return Todo.listAll();
     }
@@ -296,6 +297,13 @@ Open Postman (or other REST tool) and send a post with the following JSON:
 }
 
 ```
+
+E.g. via httpie:
+
+```shell
+http POST localhost:8080/api title='Do laundry'
+```
+
 _NOTE_: Be sure to set the "Accept" and "Content-Type" headers
 
 ## Step 5: Add the HTML
@@ -344,6 +352,7 @@ import java.util.List;
 public class ApiResource {
 
     @GET
+    @Transactional
     public List<Todo> getAllTodos() {
         return Todo.listAll();
     }
@@ -360,14 +369,10 @@ public class ApiResource {
     @Path("/{id}")
     @Transactional
     public Response deleteTodo(@PathParam("id") Long id) {
-
-        Todo todo = Todo.findById(id);
-        todo.delete();
+        Todo.delete("id", id);
         return Response.ok().build();
     }
-
 }
-
 ```
 
 Add and delete Todo items in the UI.  Open pgAdmin after creating and deleting entities.
@@ -427,7 +432,6 @@ public class ApiResource {
 
         Todo todo = Todo.findById(id);
         todo.title = updatedTodo.title;
-        todo.persist();
         return Response.ok(todo).build();
     }
 }
@@ -466,23 +470,29 @@ Show complete round trips between the UI and the database.
 
 ## Step 7: Add OpenAPI/Swagger documentation
 
-Stop Quarkus with ctrl-c.  Add the OpenAPI extension, and start Quarkus:
+Add the OpenAPI extension:
 
 ```shell
-
 ./mvnw quarkus:list-extensions
 
 ...
 
 ./mvnw quarkus:add-extension -Dextension=quarkus-smallrye-openapi
 
-...
-
-./mvnw clean quarkus:dev
-
 ```
 
-Open http://localhost:8080/openapi in your browser or curl from the command line.
+Open http://localhost:8080/openapi in your browser or curl/httpie from the command line.
+
+The Swagger UI at http://localhost:8080/swagger-ui can also be used to show off how to test/invoke API methods for which there's no UI yet, e.g. add this to the `ApiResource` for some basic search functionality, also showing a bit more Panache:
+
+
+```java
+@GET
+@Path("/bytitle")
+public List<Todo> getByTitle(@QueryParam("title") String title) {
+    return Todo.find("title LIKE ?1", "%" + title + "%").list();
+}
+```
 
 
 ## Step 8: Re-implement the API using Spring annotations
@@ -574,3 +584,22 @@ _NOTE_: To wire the SpringApiResource into the front end open src/main/resources
 
 ```
 
+## Step 9: Native Execution
+
+```shell
+./mvnw package -DskipTests=true -Pnative -Dquarkus.native.container-build=true
+```
+
+Talk for three minutes; alternatively copy pre-built binary into target.
+
+* No need for local GraalVM when using in-container build
+* Quarkus takes care of reflection config, JNI etc.
+* Why does it take so long: call flow analysis etc.
+* Even more things run at build time in native (ORM metamodel creation etc.)
+* Show Dockerfile.native
+
+```shell
+ll target | grep runner
+docker build -f src/main/docker/Dockerfile.native -t quarkus/quarkus-todo .
+docker run -i --rm -p 8080:8080 --network todo-network -e QUARKUS_DATASOURCE_URL=jdbc:postgresql://todo-db:5432/tododb quarkus/quarkus-todo
+```
