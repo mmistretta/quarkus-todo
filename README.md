@@ -20,6 +20,13 @@ cd compose
 docker-compose up
 ```
 
+Note, if you have not used docker before you will need to install docker and running the following may be necessary before running docker-compose up. 
+
+```shell
+docker-machine create default
+eval $(docker-machine env default)
+```
+
 A database "tododb", a user and schema are all configured automatically, so no further setup is needed.
 If the database doesn't show up in PGAdmin,
 the definition can be imported like this:
