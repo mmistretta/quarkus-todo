@@ -24,6 +24,9 @@ Note, if you have not used docker before you will need to install docker and run
 
 ```shell
 docker-machine create default
+```
+As well as add the folllowing to your bash_profile
+```shell
 eval $(docker-machine env default)
 ```
 
