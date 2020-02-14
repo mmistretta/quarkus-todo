@@ -11,6 +11,7 @@ This repository includes the HTML for the application, in the "html-stuff" folde
 * Postman or another way to visually test REST API's
 * PostgreSQL
 * pgAdmin
+* GraalVM
 
 You can swap out PostgreSQL for another database. I like PostgreSQL and pgAdmin because PGAdmin's interface makes it is easy to show the changes to the database. Whatever database you choose you have to set up a user account with the appropriate permissions and a schema for the application.
 I run both PostgreSQL and PGAdmin via Docker Compose:
@@ -607,6 +608,8 @@ Talk for three minutes; alternatively copy pre-built binary into target.
 * Why does it take so long: call flow analysis etc.
 * Even more things run at build time in native (ORM metamodel creation etc.)
 * Show Dockerfile.native
+
+If the above command appears to be hanging for more than a minute you may need to allocate more memory to docker. You can do this in your docker settings and then simply restart it. 
 
 ```shell
 ll target | grep runner
